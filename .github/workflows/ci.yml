@@ -31,8 +31,8 @@ jobs:
       - name: SSH to Server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 34.229.192.65
-          username: ec2-user
+          host: ${{ secrets.HOST }}
+          username: ${{ vars.username }}
           key: ${{ secrets.KEY }}
           script: |
             docker stop resume || echo ""
