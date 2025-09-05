@@ -20,18 +20,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Check-out the repository
       - name: Checkout code (Clone Repo)
         uses: actions/checkout@v4
+
+      # Configure AWS Credentials using OIDC
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
           aws-region: ${{ env.AWS_REGION }}
+
+      # Log-in to Amazon ECR
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
-      - name: Build, Tag, and Push Image to Amazon ECR
-        id: build-and-push
+
+      # Build, and Tag Image
+      - name: Build, and Tag Image
+        id: build-and-tag-image
         run: |
           docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }} .
+
+      # Scan Image for Vulnerabilities using Trivy
+      - name: Scan Image for Vulnerabilities using Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
+          format: "table"
+          exit-code: "1"
+          severity: "CRITICAL,HIGH"
+
+      # Push Image to Amazon ECR
+      - name: Push Image to Amazon ECR
+        id: push-image
+        run: |
           docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
