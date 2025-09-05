@@ -13,6 +13,7 @@ permissions:
 env:
   AWS_REGION: us-east-1
   AWS_ROLE: ${{ secrets.AWS_ACTION_ROLE }}
+  ECR_REPO_NAME: dev
 
 jobs:
   build:
@@ -27,4 +28,10 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
           aws-region: ${{ env.AWS_REGION }}
       - name: Login to Amazon ECR
+        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
+      - name: Build, Tag, and Push Image to Amazon ECR
+        id: build-and-push
+        run: |
+          docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }} .
+          docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
