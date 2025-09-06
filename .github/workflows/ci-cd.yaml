@@ -1,4 +1,4 @@
-name: Build, Push, and Deploy Image
+name: Build, Push, Scan and Deploy Image
 
 on:
   push:
@@ -16,9 +16,8 @@ env:
   ECR_REPO_NAME: dev
 
 jobs:
-  build:
+  Build:
     runs-on: ubuntu-latest
-
     steps:
       # Check-out the repository
       - name: Checkout code (Clone Repo)
@@ -36,15 +35,31 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
 
+      # Scan code for secret leaks
+      - name: Scan code for Secret Leaks
+        uses: gitleaks/gitleaks-action@v2
+
+      # Scan filesystem for vulnerabilities
+      - name: Trivy filesystem vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
       # Build, and Tag Image
       - name: Build, and Tag Image
         id: build-and-tag-image
         run: |
-          docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }} .
+          docker build -t ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }} .
 
-      # Scan Image for Vulnerabilities using Trivy
-      - name: Scan Image for Vulnerabilities using Trivy
-        uses: aquasecurity/trivy-action@master
+      # Scan Image for Vulnerabilities
+      - name: Trivy image vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
           format: "table"
@@ -56,3 +71,18 @@ jobs:
         id: push-image
         run: |
           docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
+
+      # Store image in github environment variable
+      - name: Store image in github env
+        run: echo "IMAGE_URI=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_ENV
+
+  # Deploy:
+  #   needs: Build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     # Configure AWS Credentials using OIDC
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         role-to-assume: ${{ env.AWS_ROLE }}
+  #         aws-region: ${{ env.AWS_REGION }}
