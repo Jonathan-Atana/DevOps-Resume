@@ -1,5 +1,8 @@
 FROM python:3.9-slim
 
+# Upgrade pip and setuptools FIRST, before installing other dependencies
+RUN pip install --upgrade pip setuptools>=78.1.1
+
 WORKDIR /app
 
 COPY . .

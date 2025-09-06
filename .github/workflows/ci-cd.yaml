@@ -76,6 +76,19 @@ jobs:
       - name: Store image in github env
         run: echo "IMAGE_URI=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_ENV
 
+  # DeployInfrastructure:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     # Check-out the repository
+  #     - name: Checkout code (Clone Repo)
+  #       uses: actions/checkout@v4
+
+  #     # Configure AWS Credentials using OIDC
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v2
+  #       with:
+  #         role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
+  #         aws-region: ${{ env.AWS_REGION }}
   # Deploy:
   #   needs: Build
   #   runs-on: ubuntu-latest
