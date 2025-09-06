@@ -16,8 +16,11 @@ env:
   ECR_REPO_NAME: dev
 
 jobs:
-  Build:
+  build-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.ecr-image.outputs.image_uri }}
+
     steps:
       # Check-out the repository
       - name: Checkout code (Clone Repo)
@@ -53,7 +56,6 @@ jobs:
 
       # Build, and Tag Image
       - name: Build, and Tag Image
-        id: build-and-tag-image
         run: |
           docker build -t ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }} .
 
@@ -68,34 +70,105 @@ jobs:
 
       # Push Image to Amazon ECR
       - name: Push Image to Amazon ECR
-        id: push-image
         run: |
           docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
 
       # Store image in github environment variable
-      - name: Store image in github env
-        run: echo "IMAGE_URI=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_ENV
+      - name: Set image output
+        id: ecr-image
+        run: echo "image_uri=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_OUTPUT
 
-  # DeployInfrastructure:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     # Check-out the repository
-  #     - name: Checkout code (Clone Repo)
-  #       uses: actions/checkout@v4
+  terraform-deploy:
+    runs-on: ubuntu-latest
+    needs: build-push
+    outputs:
+      cluster_name: ${{ steps.terraform-outputs.outputs.cluster_name }}
+      service_name: ${{ steps.terraform-outputs.outputs.service_name }}
+      lb_dns: ${{ steps.terraform-outputs.outputs.lb_dns }}
 
-  #     # Configure AWS Credentials using OIDC
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v2
-  #       with:
-  #         role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
-  #         aws-region: ${{ env.AWS_REGION }}
-  # Deploy:
-  #   needs: Build
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     # Configure AWS Credentials using OIDC
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v1
-  #       with:
-  #         role-to-assume: ${{ env.AWS_ROLE }}
-  #         aws-region: ${{ env.AWS_REGION }}
+    env:
+      TF_VERSION: "1.12.1"
+      WORKING_DIR: "./infrastructure"
+
+    steps:
+      # Check-out the repository
+      - name: Checkout code (Clone Repo)
+        uses: actions/checkout@v4
+
+      # Terraform setup
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # Configure AWS Credentials using OIDC
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Download plugins
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIR }}
+
+      # Terraform format and validate
+      - name: Format, and validate config files
+        run: terraform fmt && terraform validate
+        working-directory: ${{ env.WORKING_DIR }}
+
+      # Terraform Plan
+      - name: Plan of what is to be created
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
+          TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
+
+      # Apply the plan
+      - name: Apply configurations
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
+          TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
+
+      # Get some usefule outputs from terraform
+      - name: Extract Terraform outputs
+        id: terraform-outputs
+        run: |
+          echo "cluster_name=$(terraform output -raw cluster-name)" >> $GITHUB_OUTPUT
+          echo "service_name=$(terraform output -raw service-name)" >> $GITHUB_OUTPUT
+          echo "lb_dns=$(terraform output -raw lb-dns)" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIR }}
+
+  verify-deployment:
+    runs-on: ubuntu-latest
+    needs: terraform-deploy
+
+    steps:
+      # Check-out the repository
+      - name: Checkout code (Clone Repo)
+        uses: actions/checkout@v4
+
+      # Configure AWS Credentials using OIDC
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ needs.terraform-deploy.outputs.cluster_name }} \
+            --services ${{ needs.terraform-deploy.outputs.service_name }}
+
+      - name: Display deployment info
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "🏗️ Cluster: ${{ needs.terraform-deploy.outputs.cluster_name }}"
+          echo "🔧 Service: ${{ needs.terraform-deploy.outputs.service_name }}"
+          echo "🌐 Load Balancer DNS: ${{ needs.terraform-deploy.outputs.lb_dns }}"
+          echo "🔗 Service URL: http://${{ needs.terraform-deploy.outputs.lb_dns }}"

@@ -6,7 +6,7 @@ resource "aws_iam_role" "ecs_task_execution" {
 
   tags = {
     Service     = "ECS"
-    Environment = var.env
+    env = var.env
   }
 }
 
