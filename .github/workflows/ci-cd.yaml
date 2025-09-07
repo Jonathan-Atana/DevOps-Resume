@@ -200,6 +200,10 @@ jobs:
           echo "=== FILE CONTENT ==="
           cat terraform-outputs/all-outputs.json
           echo "=== END CONTENT ==="
+          echo "=== FILE CONTENT (CLUSTER-NAME)==="
+          echo "$(jq -r '.["cluster-name"].value' terraform-outputs/all-outputs.json)"
+          echo "$(jq -r '.["cluster-name"].value // empty' terraform-outputs/all-outputs.json)"
+          echo "=== END CONTENT (CLUSTER-NAME) ==="
           echo "=== FILE INFO ==="
           ls -la terraform-outputs/
           file terraform-outputs/all-outputs.json
@@ -223,9 +227,9 @@ jobs:
           fi
 
           # Then parse the file
-          echo "cluster_name=$(jq -r '.["cluster-name"].value // empty' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
-          echo "service_name=$(jq -r '.["service-name"].value // empty' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
-          echo "lb_dns=$(jq -r '.["lb-dns"].value // empty' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
+          echo "cluster_name=$(jq -r '.["cluster-name"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
+          echo "service_name=$(jq -r '.["service-name"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
+          echo "lb_dns=$(jq -r '.["lb-dns"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
 
       # Display info about deployment
       - name: Display deployment info
