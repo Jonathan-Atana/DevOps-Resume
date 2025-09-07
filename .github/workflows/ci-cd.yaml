@@ -155,26 +155,20 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.WORKING_DIR }}
 
-      - name: Debug Terraform outputs
-        run: |
-          echo "=== ALL OUTPUTS ==="
-          terraform output
-          echo "=== JSON cluster-name ==="
-          terraform output -json cluster-name || echo "Failed to get cluster-name as JSON"
-          echo "=== RAW cluster-name ==="
-          terraform output -raw cluster-name || echo "Failed to get cluster-name"
-          echo "=== LIST ALL OUTPUT NAMES ==="
-          terraform output -json | jq 'keys' || echo "No outputs found"
-        working-directory: ${{ env.WORKING_DIR }}
-
       # Get some usefule outputs from terraform
       - name: Extract Terraform outputs
         id: terraform-outputs
         run: |
-          echo "cluster_name=$(terraform output -raw cluster-name)" >> $GITHUB_OUTPUT
-          echo "service_name=$(terraform output -raw service-name)" >> $GITHUB_OUTPUT
-          echo "lb_dns=$(terraform output -raw lb-dns)" >> $GITHUB_OUTPUT
+          sudo apt-get install -y jq
+          echo "cluster_name=$(terraform output -json cluster-name | jq -r .)" >> $GITHUB_OUTPUT
+          echo "service_name=$(terraform output -json service-name | jq -r .)" >> $GITHUB_OUTPUT
+          echo "lb_dns=$(terraform output -json lb-dns | jq -r .)" >> $GITHUB_OUTPUT
         working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Test if terraform-outputs contain values
+        run: |
+          printenv
+          echo "cluster_name=${{ steps.terraform-outputs.outputs.cluster_name }}"
 
   verify-deployment:
     runs-on: ubuntu-latest
