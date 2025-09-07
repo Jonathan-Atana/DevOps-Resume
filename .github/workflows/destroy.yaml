@@ -45,18 +45,8 @@ jobs:
       - name: Extract Terraform outputs
         id: terraform-outputs
         run: |
-          # Check if outputs exist before trying to extract them
-          if terraform output -raw container-image >/dev/null 2>&1; then
-            echo "image_uri=$(terraform output -raw container-image)" >> $GITHUB_OUTPUT
-          else
-            echo "image_uri=" >> $GITHUB_OUTPUT
-          fi
-
-          if terraform output -raw container-name >/dev/null 2>&1; then
-            echo "container_name=$(terraform output -raw container-name)" >> $GITHUB_OUTPUT
-          else
-            echo "container_name=" >> $GITHUB_OUTPUT
-          fi
+          echo "container_name=$(terraform output -raw container-name)" >> $GITHUB_OUTPUT
+          echo "image_uri=$(terraform output -raw container-image)" >> $GITHUB_OUTPUT
         working-directory: ${{ env.WORKING_DIR }}
 
       # Destroy infrastructure

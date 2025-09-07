@@ -18,8 +18,6 @@ env:
 jobs:
   build-push:
     runs-on: ubuntu-latest
-    outputs:
-      image_uri: ${{ steps.ecr-image.outputs.image_uri }}
 
     steps:
       # Check-out the repository
@@ -75,14 +73,17 @@ jobs:
         run: |
           docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
 
-      # Store image in github environment variable
-      - name: Set image output
-        id: ecr-image
+      # Save image uri to a file
+      - name: Save image URI to file
         run: |
-          echo "IMAGE_URI=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}"
-          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT 
-          echo "🔗🔗🔗 $IMAGE_URI"
-          echo "🔗🔗🔗 image_uri=${{ steps.ecr-image.outputs.image_uri }} 🔗🔗🔗"
+          echo "${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" > image_uri.txt
+
+      # Upload image uri artifact
+      - name: Upload image URI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-uri
+          path: image_uri.txt
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -116,26 +117,9 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
           aws-region: ${{ env.AWS_REGION }}
 
-      # DEBUG: Check what we received from build job
-      - name: Debug received outputs
-        run: |
-          echo "Build job outputs:"
-          echo "image_uri: '${{ needs.build-push.outputs.image_uri }}'"
-          if [ -z "${{ needs.build-push.outputs.image_uri }}" ]; then
-            echo "ERROR: image_uri is EMPTY!"
-          else
-            echo "SUCCESS: image_uri has value"
-          fi
-
-      # DEBUG: Check environment variables
-      - name: Debug environment variables
-        run: |
-          echo "Environment variables:"
-          printenv | grep TF_VAR_ || echo "No TF_VAR_ environment variables found"
-
       # Download plugins
       - name: Terraform Init
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_NAME }}" # echo "🔗🔗🔗 IMAGE_URI=${{ needs.build-push.outputs.image_uri }}🔗🔗🔗" is empty
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_NAME }}"
         working-directory: ${{ env.WORKING_DIR }}
 
       # Terraform format and validate
@@ -143,10 +127,22 @@ jobs:
         run: terraform fmt && terraform validate
         working-directory: ${{ env.WORKING_DIR }}
 
+      # Download image uri from artifact
+      - name: Download image URI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-uri
+
+      # Read image uri and store in output
+      - name: Read image URI
+        id: read-image
+        run: |
+          echo "image_uri=$(cat image_uri.txt)" >> $GITHUB_OUTPUT
+
       # Terraform Plan
       - name: Plan of what is to be created
         env:
-          TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
+          TF_VAR_container_image: ${{ steps.read-image.outputs.image_uri }}
           TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
         run: terraform plan -out=tfplan
         working-directory: ${{ env.WORKING_DIR }}
@@ -154,7 +150,7 @@ jobs:
       # Apply the plan
       - name: Apply configurations
         env:
-          TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
+          TF_VAR_container_image: ${{ steps.read-image.outputs.image_uri }}
           TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
         run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.WORKING_DIR }}
