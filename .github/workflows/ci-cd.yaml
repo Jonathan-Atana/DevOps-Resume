@@ -158,7 +158,7 @@ jobs:
         id: terraform-outputs
         run: |
           # Create a combined JSON file
-          terraform output -json 2>/dev/null | grep -v "^/" > all-outputs.json
+          terraform output -json 2>&1 | grep -v "^/" > all-outputs.json
 
           echo "✅ Terraform outputs saved to file"
         working-directory: ${{ env.WORKING_DIR }}
@@ -237,16 +237,15 @@ jobs:
           echo "=== CLEAN CONTENT ==="
           CLEAN_JSON=$(tail -n +2 "terraform-outputs/all-outputs.json")
 
-          echo "=== CLEAN CONTENT PRINT ==="
           echo "$CLEAN_JSON"
 
-          echo "cluster-name=$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value')"
-          echo "cluster-name=$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value // empty')"
+          echo "cluster-name=$(echo "$CLEAN_JSON" | jq -r '.["cluster-name"].value')"
+          echo "cluster-name=$(echo "$CLEAN_JSON" | jq -r '.["cluster-name"].value // empty')"
           echo "=== END CONTENT PRINT ==="
 
-          echo "$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value // empty')" >> $GITHUB_OUTPUT
-          echo "$(echo '$CLEAN_JSON' | jq -r '.["service-name"].value // empty')" >> $GITHUB_OUTPUT
-          echo "$(echo '$CLEAN_JSON' | jq -r '.["lb-dns"].value // empty')" >> $GITHUB_OUTPUT
+          echo "$(echo "$CLEAN_JSON" | jq -r '.["cluster-name"].value // empty')" >> $GITHUB_OUTPUT
+          echo "$(echo "$CLEAN_JSON" | jq -r '.["service-name"].value // empty')" >> $GITHUB_OUTPUT
+          echo "$(echo "$CLEAN_JSON" | jq -r '.["lb-dns"].value // empty')" >> $GITHUB_OUTPUT
 
       # Display info about deployment
       - name: Display deployment info
