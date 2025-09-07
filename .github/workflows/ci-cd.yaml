@@ -114,7 +114,7 @@ jobs:
 
       # Download plugins
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_NAME }}"
         working-directory: ${{ env.WORKING_DIR }}
 
       # Terraform format and validate
