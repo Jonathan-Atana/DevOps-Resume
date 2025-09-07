@@ -9,7 +9,7 @@ output "service-name" {
 }
 
 output "container-image" {
-  description = "Image uri"
+  description = "Container image uri"
   value = var.container_image
 }
 
