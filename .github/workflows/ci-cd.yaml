@@ -155,6 +155,18 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.WORKING_DIR }}
 
+      - name: Debug Terraform outputs
+        run: |
+          echo "=== ALL OUTPUTS ==="
+          terraform output
+          echo "=== JSON cluster-name ==="
+          terraform output -json cluster-name || echo "Failed to get cluster-name as JSON"
+          echo "=== RAW cluster-name ==="
+          terraform output -raw cluster-name || echo "Failed to get cluster-name"
+          echo "=== LIST ALL OUTPUT NAMES ==="
+          terraform output -json | jq 'keys' || echo "No outputs found"
+        working-directory: ${{ env.WORKING_DIR }}
+
       # Get some usefule outputs from terraform
       - name: Extract Terraform outputs
         id: terraform-outputs
