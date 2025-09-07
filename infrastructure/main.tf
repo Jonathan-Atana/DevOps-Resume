@@ -45,9 +45,3 @@ resource "aws_ecs_service" "main" {
 
   depends_on = [aws_alb_listener.main]
 }
-
-# Create the s3 bucket
-resource "aws_s3_bucket" "this" {
-  bucket        = var.bucket_name
-  force_destroy = true
-}
