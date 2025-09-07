@@ -37,6 +37,8 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: "true"
 
       # Scan code for secret leaks
       - name: Scan code for Secret Leaks
@@ -152,11 +154,11 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
 
       # Save file
-      - name: Extract Terraform outputs to file
+      - name: Save Terraform outputs to file
         id: terraform-outputs
         run: |
           # Create a combined JSON file
-          terraform output -json > all-outputs.json
+          terraform output -json 2>/dev/null | grep -v "^/" > all-outputs.json
 
           echo "✅ Terraform outputs saved to file"
         working-directory: ${{ env.WORKING_DIR }}
@@ -230,6 +232,14 @@ jobs:
           echo "cluster_name=$(jq -r '.["cluster-name"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
           echo "service_name=$(jq -r '.["service-name"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
           echo "lb_dns=$(jq -r '.["lb-dns"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
+
+          # Remove the first line (the command) and parse the clean JSON
+          echo "=== CLEAN CONTENT ==="
+          CLEAN_JSON=$(tail -n +2 "terraform-outputs/all-outputs.json")
+
+          echo "$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value // empty')" >> $GITHUB_OUTPUT
+          echo "$(echo '$CLEAN_JSON' | jq -r '.["service-name"].value // empty')" >> $GITHUB_OUTPUT
+          echo "$(echo '$CLEAN_JSON' | jq -r '.["lb-dns"].value // empty')" >> $GITHUB_OUTPUT
 
       # Display info about deployment
       - name: Display deployment info
