@@ -15,10 +15,6 @@ env:
   AWS_ROLE: ${{ secrets.AWS_ACTION_ROLE }}
   ECR_REPO_NAME: dev
 
-outputs:
-  ecr_repo_name: ${{ env.ECR_REPO_NAME }}
-  image_uri: ${{ steps.ecr-image.outputs.image_uri }}
-
 jobs:
   build-push:
     runs-on: ubuntu-latest
