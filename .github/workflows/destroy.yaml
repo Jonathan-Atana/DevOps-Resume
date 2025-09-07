@@ -45,8 +45,9 @@ jobs:
       - name: Extract Terraform outputs
         id: terraform-outputs
         run: |
-          echo "container_name=$(terraform output -raw container-name)" >> $GITHUB_OUTPUT
-          echo "image_uri=$(terraform output -raw container-image)" >> $GITHUB_OUTPUT
+          sudo apt-get install -y jq
+          echo "container_name=$(terraform output -json container-name | jq -r .)" >> $GITHUB_OUTPUT
+          echo "image_uri=$(terraform output -json container-image | jq -r .)" >> $GITHUB_OUTPUT
         working-directory: ${{ env.WORKING_DIR }}
 
       # Destroy infrastructure
