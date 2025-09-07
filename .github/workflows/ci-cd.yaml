@@ -156,7 +156,7 @@ jobs:
         id: terraform-outputs
         run: |
           # Create a combined JSON file
-          terraform output -json > all-outputs.json
+          terraform output -json 2>/dev/null | grep -v "::debug::" > all-outputs.json
 
           echo "✅ Terraform outputs saved to file"
         working-directory: ${{ env.WORKING_DIR }}
@@ -193,6 +193,18 @@ jobs:
         with:
           name: all-outputs
           path: terraform-outputs/
+
+      # Debug step
+      - name: Debug JSON file content
+        run: |
+          echo "=== FILE CONTENT ==="
+          cat terraform-outputs/all-outputs.json
+          echo "=== END CONTENT ==="
+          echo "=== FILE INFO ==="
+          ls -la terraform-outputs/
+          file terraform-outputs/all-outputs.json
+          echo "=== FIRST 10 LINES ==="
+          head -10 terraform-outputs/all-outputs.json
 
       # Read artifacts and store in output
       - name: Parse JSON outputs
