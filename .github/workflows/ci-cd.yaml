@@ -78,7 +78,11 @@ jobs:
       # Store image in github environment variable
       - name: Set image output
         id: ecr-image
-        run: echo "image_uri=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_OUTPUT && echo "🔗🔗🔗 IMAGE_URI=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}🔗🔗🔗"
+        run: |
+          echo "IMAGE_URI=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}"
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT 
+          echo "🔗🔗🔗 $IMAGE_URI"
+          echo "🔗🔗🔗 image_uri=${{ steps.ecr-image.outputs.image_uri }} 🔗🔗🔗"
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -112,14 +116,32 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
           aws-region: ${{ env.AWS_REGION }}
 
+      # DEBUG: Check what we received from build job
+      - name: Debug received outputs
+        run: |
+          echo "Build job outputs:"
+          echo "image_uri: '${{ needs.build-push.outputs.image_uri }}'"
+          echo "Length: ${#{{ needs.build-push.outputs.image_uri }}}"
+          if [ -z "${{ needs.build-push.outputs.image_uri }}" ]; then
+            echo "ERROR: image_uri is EMPTY!"
+          else
+            echo "SUCCESS: image_uri has value"
+          fi
+
+      # DEBUG: Check environment variables
+      - name: Debug environment variables
+        run: |
+          echo "Environment variables:"
+          printenv | grep TF_VAR_ || echo "No TF_VAR_ environment variables found"
+
       # Download plugins
       - name: Terraform Init
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_NAME }}" && echo "🔗🔗🔗 IMAGE_URI=${{ needs.build-push.outputs.image_uri }}🔗🔗🔗"
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_NAME }}" # echo "🔗🔗🔗 IMAGE_URI=${{ needs.build-push.outputs.image_uri }}🔗🔗🔗" is empty
         working-directory: ${{ env.WORKING_DIR }}
 
       # Terraform format and validate
       - name: Format, and validate config files
-        run: terraform fmt && terraform validate && echo "🔗🔗🔗 IMAGE_URI=${{ needs.build-push.outputs.image_uri }}🔗🔗🔗"
+        run: terraform fmt && terraform validate
         working-directory: ${{ env.WORKING_DIR }}
 
       # Terraform Plan
@@ -127,7 +149,7 @@ jobs:
         env:
           TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
           TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
-        run: terraform plan -out=tfplan && echo "🔗🔗🔗 IMAGE_URI=${{ needs.build-push.outputs.image_uri }}🔗🔗🔗" && echo "🔗🔗🔗 IMAGE_URI2=${{ env.TF_VAR_container_image }}🔗🔗🔗"
+        run: terraform plan -out=tfplan
         working-directory: ${{ env.WORKING_DIR }}
 
       # Apply the plan
@@ -135,7 +157,7 @@ jobs:
         env:
           TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
           TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
-        run: echo "🔗🔗🔗 IMAGE_URI=${{ needs.build-push.outputs.image_uri }}🔗🔗🔗" && echo "🔗🔗🔗 IMAGE_URI2=${{ env.TF_VAR_container_image }}🔗🔗🔗" && terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.WORKING_DIR }}
 
       # Get some usefule outputs from terraform
