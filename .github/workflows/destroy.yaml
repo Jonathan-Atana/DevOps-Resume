@@ -1,0 +1,61 @@
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch: # Manual trigger only for safety
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: "1.12.1"
+  WORKING_DIR: "./infrastructure"
+  AWS_ROLE: ${{ secrets.AWS_ACTION_ROLE }}
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # To clone the repo
+      id-token: write # Needed for AWS OIDC if using it
+
+    steps:
+      # Check-out the repository
+      - name: Checkout code (Clone Repo)
+        uses: actions/checkout@v4
+
+      # Terraform setup
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # Configure AWS Credentials using OIDC
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ env.AWS_ROLE }} # OIDC Role ARN
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Download plugins
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIR }}
+
+      # Get some usefule outputs from terraform
+      - name: Extract Terraform outputs
+        id: terraform-outputs
+        run: |
+          echo "image_uri=$(terraform output -raw container-image)" >> $GITHUB_OUTPUT
+          echo "contaimer_name=$(terraform output -raw container-name)" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIR }}
+
+      # Destroy infrastructure
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          TF_VAR_container_image: ${{ steps.terraform-outputs.outputs.image_uri }}
+          TF_VAR_container_name: ${{ steps.terraform-outputs.outputs.contaimer_name }}
+
+      - name: Confirm destruction
+        run: |
+          echo "✅ Infrastructure destroyed successfully"
+          echo "🗑️ ECS cluster and all associated resources have been removed"

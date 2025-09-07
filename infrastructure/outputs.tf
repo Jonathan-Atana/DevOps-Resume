@@ -8,6 +8,16 @@ output "service-name" {
   value       = aws_ecs_service.main.name
 }
 
+output "container-image" {
+  description = "Image uri"
+  value = var.container_image
+}
+
+output "container-name" {
+  description = "Image uri"
+  value = var.container_name
+}
+
 output "lb-dns" {
   value = aws_alb.main.dns_name
 }
