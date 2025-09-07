@@ -65,7 +65,7 @@ jobs:
       - name: Trivy image vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
+          image-ref: ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }}
           format: "table"
           exit-code: "1"
           severity: "CRITICAL,HIGH"
@@ -73,12 +73,12 @@ jobs:
       # Push Image to Amazon ECR
       - name: Push Image to Amazon ECR
         run: |
-          docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
+          docker push ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }}
 
       # Store image in github environment variable
       - name: Set image output
         id: ecr-image
-        run: echo "image_uri=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_OUTPUT
+        run: echo "image_uri=${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }}" >> $GITHUB_OUTPUT
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -124,19 +124,19 @@ jobs:
 
       # Terraform Plan
       - name: Plan of what is to be created
-        run: terraform plan -out=tfplan
-        working-directory: ${{ env.WORKING_DIR }}
         env:
           TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
           TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
+        run: terraform plan -out=tfplan && echo "IMAGE_URI = ${{ needs.build-push.outputs.image_uri }}"
+        working-directory: ${{ env.WORKING_DIR }}
 
       # Apply the plan
       - name: Apply configurations
-        run: terraform apply -auto-approve tfplan
-        working-directory: ${{ env.WORKING_DIR }}
         env:
           TF_VAR_container_image: ${{ needs.build-push.outputs.image_uri }}
           TF_VAR_container_name: ${{ env.ECR_REPO_NAME }}
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.WORKING_DIR }}
 
       # Get some usefule outputs from terraform
       - name: Extract Terraform outputs
