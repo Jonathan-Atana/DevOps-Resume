@@ -121,7 +121,6 @@ jobs:
         run: |
           echo "Build job outputs:"
           echo "image_uri: '${{ needs.build-push.outputs.image_uri }}'"
-          echo "Length: ${#{{ needs.build-push.outputs.image_uri }}}"
           if [ -z "${{ needs.build-push.outputs.image_uri }}" ]; then
             echo "ERROR: image_uri is EMPTY!"
           else
