@@ -176,9 +176,3 @@ jobs:
           echo "🔧 Service: ${{ needs.terraform-deploy.outputs.service_name }}"
           echo "🌐 Load Balancer DNS: ${{ needs.terraform-deploy.outputs.lb_dns }}"
           echo "🔗 Service URL: http://${{ needs.terraform-deploy.outputs.lb_dns }}"
-
-  destroy:
-    runs-on: ubuntu-latest
-    needs: verify-deployment
-
-    steps:
