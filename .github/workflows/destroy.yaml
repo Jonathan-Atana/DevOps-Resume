@@ -41,24 +41,80 @@ jobs:
         run: terraform init -backend-config="bucket=${{ secrets.BUCKET_NAME }}"
         working-directory: ${{ env.WORKING_DIR }}
 
-      # Get some usefule outputs from terraform
-      - name: Extract Terraform outputs
-        id: terraform-outputs
+      # Download file from artifact
+      - name: Download Terraform outputs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: all-outputs
+          path: terraform-outputs/
+        continue-on-error: true # ← Don't fail if artifact doesn't exist
+
+      # Read from artifact and store in output
+      - name: Read from JSON artifact
+        id: read-json-outputs
         run: |
+          # Install jq
           sudo apt-get install -y jq
-          echo "container_name=$(terraform output -json container-name | jq -r .)" >> $GITHUB_OUTPUT
-          echo "image_uri=$(terraform output -json container-image | jq -r .)" >> $GITHUB_OUTPUT
-        working-directory: ${{ env.WORKING_DIR }}
+
+          if [ -f "terraform-outputs/all-outputs.json" ]; then
+            echo "container_name=$(jq -r '.["container-name"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
+            echo "image_uri=$(jq -r '.["container-image"].value' terraform-outputs/all-outputs.json)" >> $GITHUB_OUTPUT
+          else
+            echo "WARNING: all-outputs.json not found in artifacts"
+            echo "container_name=" >> $GITHUB_OUTPUT
+            echo "image_uri=" >> $GITHUB_OUTPUT
+          fi
+
+      # Empty the ECR repo before destroying architecture
+      - name: Nuclear ECR image cleanup
+        if: steps.read-json-outputs.outputs.container_name != ''
+        run: |
+          REPO_NAME="${{ steps.read-json-outputs.outputs.container_name }}"
+          echo "🧹 Performing nuclear ECR cleanup for: $REPO_NAME"
+
+          # Check if repository exists
+          if ! aws ecr describe-repositories --repository-names $REPO_NAME >/dev/null 2>&1; then
+            echo "ℹ️ Repository $REPO_NAME does not exist (already deleted?)"
+            exit 0
+          fi
+
+          # Get image count for reporting
+          IMAGE_COUNT=$(aws ecr list-images --repository-name $REPO_NAME --query 'length(imageIds)' --output text)
+
+          if [ "$IMAGE_COUNT" -eq "0" ]; then
+            echo "✅ Repository $REPO_NAME is already empty"
+            exit 0
+          fi
+
+          echo "⚠️  Deleting $IMAGE_COUNT images from $REPO_NAME"
+
+          # Efficient batch delete all images
+          aws ecr batch-delete-image \
+            --repository-name $REPO_NAME \
+            --image-ids "$(aws ecr list-images \
+              --repository-name $REPO_NAME \
+              --query 'imageIds[].{imageTag:imageTag}' \
+              --output json)" \
+            --output text
+
+          echo "✅ Successfully deleted $IMAGE_COUNT images from $REPO_NAME"
 
       # Destroy infrastructure
       - name: Terraform Destroy
+        timeout-minutes: 15 # ← Prevent hanging
         env:
-          TF_VAR_container_image: ${{ steps.terraform-outputs.outputs.image_uri }}
-          TF_VAR_container_name: ${{ steps.terraform-outputs.outputs.contaimer_name }}
+          TF_VAR_container_image: ${{ steps.read-json-outputs.outputs.image_uri }}
+          TF_VAR_container_name: ${{ steps.read-json-outputs.outputs.container_name }}
         run: terraform destroy -auto-approve
         working-directory: ${{ env.WORKING_DIR }}
 
+      # Confirm destruction
       - name: Confirm destruction
         run: |
           echo "✅ Infrastructure destroyed successfully"
           echo "🗑️ ECS cluster and all associated resources have been removed"
+
+      # Cleanup downloaded artifacts
+      - name: Cleanup downloaded artifacts
+        if: always()
+        run: rm -rf terraform-outputs/ image_uri.txt
