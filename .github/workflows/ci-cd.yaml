@@ -59,13 +59,13 @@ jobs:
       # Build, and Tag Image
       - name: Build, and Tag Image
         run: |
-          docker build -t ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }} .
+          docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }} .
 
       # Scan Image for Vulnerabilities
       - name: Trivy image vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }}
+          image-ref: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
           format: "table"
           exit-code: "1"
           severity: "CRITICAL,HIGH"
@@ -73,12 +73,12 @@ jobs:
       # Push Image to Amazon ECR
       - name: Push Image to Amazon ECR
         run: |
-          docker push ${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }}
+          docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}
 
       # Store image in github environment variable
       - name: Set image output
         id: ecr-image
-        run: echo "image_uri=${{ steps.ecr-login.outputs.registry }}/$ECR_REPO_NAME:${{ github.run_number }}" >> $GITHUB_OUTPUT
+        run: echo "image_uri=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.run_number }}" >> $GITHUB_OUTPUT
 
   terraform-deploy:
     runs-on: ubuntu-latest
