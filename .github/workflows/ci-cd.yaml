@@ -157,8 +157,8 @@ jobs:
       - name: Save Terraform outputs to file
         id: terraform-outputs
         run: |
-          # Create a combined JSON file
-          terraform output -json 2>&1 | grep -v "^/" > all-outputs.json
+          # Remove the first line (always the command) and save clean JSON
+          terraform output -json 2>&1 | sed '1d' > all-outputs.json
 
           echo "✅ Terraform outputs saved to file"
         working-directory: ${{ env.WORKING_DIR }}
@@ -239,7 +239,6 @@ jobs:
 
           echo "$CLEAN_JSON"
 
-          echo "cluster-name=$(echo "$CLEAN_JSON" | jq -r '.["cluster-name"].value')"
           echo "cluster-name=$(echo "$CLEAN_JSON" | jq -r '.["cluster-name"].value // empty')"
           echo "=== END CONTENT PRINT ==="
 
