@@ -25,6 +25,8 @@ jobs:
       # Check-out the repository
       - name: Checkout code (Clone Repo)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ← This gets full history instead of shallow clone
 
       # Configure AWS Credentials using OIDC
       - name: Configure AWS Credentials
@@ -94,6 +96,8 @@ jobs:
       # Check-out the repository
       - name: Checkout code (Clone Repo)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ← This gets full history instead of shallow clone
 
       # Terraform setup
       - name: Setup Terraform
@@ -151,6 +155,8 @@ jobs:
       # Check-out the repository
       - name: Checkout code (Clone Repo)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ← This gets full history instead of shallow clone
 
       # Configure AWS Credentials using OIDC
       - name: Configure AWS Credentials
