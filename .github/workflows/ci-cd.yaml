@@ -156,7 +156,7 @@ jobs:
         id: terraform-outputs
         run: |
           # Create a combined JSON file
-          terraform output -json 2>/dev/null | grep -v "::debug::" > all-outputs.json
+          terraform output -json > all-outputs.json
 
           echo "✅ Terraform outputs saved to file"
         working-directory: ${{ env.WORKING_DIR }}
