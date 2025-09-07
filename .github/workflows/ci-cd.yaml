@@ -237,6 +237,13 @@ jobs:
           echo "=== CLEAN CONTENT ==="
           CLEAN_JSON=$(tail -n +2 "terraform-outputs/all-outputs.json")
 
+          echo "=== CLEAN CONTENT PRINT ==="
+          echo "$CLEAN_JSON"
+
+          echo "cluster-name=$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value')"
+          echo "cluster-name=$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value // empty')"
+          echo "=== END CONTENT PRINT ==="
+
           echo "$(echo '$CLEAN_JSON' | jq -r '.["cluster-name"].value // empty')" >> $GITHUB_OUTPUT
           echo "$(echo '$CLEAN_JSON' | jq -r '.["service-name"].value // empty')" >> $GITHUB_OUTPUT
           echo "$(echo '$CLEAN_JSON' | jq -r '.["lb-dns"].value // empty')" >> $GITHUB_OUTPUT
