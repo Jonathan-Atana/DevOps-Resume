@@ -61,11 +61,11 @@ jobs:
 
       # Destroy infrastructure
       - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-        working-directory: ${{ env.WORKING_DIR }}
         env:
           TF_VAR_container_image: ${{ steps.terraform-outputs.outputs.image_uri }}
           TF_VAR_container_name: ${{ steps.terraform-outputs.outputs.contaimer_name }}
+        run: terraform destroy -auto-approve
+        working-directory: ${{ env.WORKING_DIR }}
 
       - name: Confirm destruction
         run: |
