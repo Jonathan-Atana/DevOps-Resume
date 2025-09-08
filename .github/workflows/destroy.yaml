@@ -114,7 +114,10 @@ jobs:
           echo "✅ Infrastructure destroyed successfully"
           echo "🗑️ ECS cluster and all associated resources have been removed"
 
-      # Cleanup downloaded artifacts
+      # Cleanup
       - name: Cleanup downloaded artifacts
         if: always()
-        run: rm -rf terraform-outputs/ image_uri.txt
+        run: |
+          rm -rf terraform-outputs/
+          rm -f image_uri.txt
+          echo "✅ Downloaded Artifacts cleaned up"
