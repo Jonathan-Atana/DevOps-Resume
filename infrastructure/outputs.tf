@@ -1,3 +1,4 @@
+# Outputs
 output "cluster-name" {
   description = "The ECS cluster's name"
   value       = aws_ecs_cluster.main.name
